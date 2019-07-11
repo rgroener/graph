@@ -156,22 +156,24 @@ uint16_t vor_komma(uint32_t value);
 uint8_t nach_komma(uint32_t value);
 long graph(uint16_t value)
 {
-	
 	static uint16_t posx=0;	
 	static long corr=0;	//correcture to keep graph on display
 	static uint16_t posy_start=100;//y position of graph-start
 	static uint16_t posx_max=230;
-	static uint8_t posy_min=80;
-	static uint16_t posy_max=180;
+	static uint8_t posy_min=100;
+	static uint16_t posy_max=200;
 	static uint16_t xx=0;
 	uint16_t store[300];//make array +2 bigger than needed
-	static uint16_t val_min=200;
-	static uint16_t val_max=0;
+	static uint16_t val_min=1;			//Position of actual min in array
+	static uint16_t val_max=1;			//Position of actual max in array
+	static uint16_t val_max_old=1;		//Position of last max in array
+	static uint16_t val_min_old=1;		//Position of last min in array
+	static uint8_t label_offset_x=20; //horiz offset to min/max label
+	static uint8_t label_offset_y=20; //vertical offset to min/max label
 	
 	ili9341_drawLine(1, posy_min, 300, posy_min,GREEN);
 	ili9341_drawLine(1, posy_max, 300, posy_max,GREEN);
 	posy_start=(((posy_max-posy_min)/2)+posy_min);
-
 	
 	if(posx != posx_max)	//graph still growing to the right
 	{
@@ -179,11 +181,16 @@ long graph(uint16_t value)
 		if(posx==1)
 		{
 			while((value-corr) >= posy_start)corr++;//move 1.point of graph to start position
-			val_min=value;//set first min in array
-			val_max=value;//set first max in array
+			val_min=1;//set first min in array
+			val_max=1;//set first max in array
 		}
 		store[posx]= value;	//store value in array
-				
+		
+		if(store[val_max] > value)
+		{
+			val_max=posx;//set position of new max
+		}else if(store[val_min] < value)val_min=posx;//set position of new min
+		
 		for(xx=1;xx<posx+1;xx++)	//print used part of array
 		{
 			if(xx==1)store[0]=store[1];//brings starting point close to first value
@@ -197,19 +204,51 @@ long graph(uint16_t value)
 			ili9341_drawLine(xx, store[xx]-corr, xx+1, store[xx+1]-corr, BLACK);
 			if(xx!=posx_max)store[xx]=store[xx+1];	//move values in array to the left
 			store[posx_max]= value;	//store new value at last position in arrray
+			
+			if(store[val_max] > value)
+			{
+				val_max=xx;//set position of new max
+			}else if(store[val_min] < value)val_min=xx;//set position of new min
+				
+			
 			store[posx_max+1]=value;
 			store[posx_max+2]=value;
 			if(xx!=posx_max)ili9341_drawLine(xx, store[xx+1]-corr, xx+1, store[xx+2]-corr, YELLOW);	//dras new graph
 		}
+		
+		
 	}
-	
-	if(store[posx] > val_max)val_max=store[posx];//set new max in array
-	if(store[posx] < val_min)val_min=store[posx];//set new min in array
-	
-	ili9341_setcursor(10,50);
-	printf("Pos: %d val: %d", store[posx_max], store[posx_max+2]);
+	if((val_min_old != val_min)||(val_max_old != val_max))
+	{
+		//clear old pointer 
+		ili9341_drawLine(val_max_old+3, store[val_max_old]-corr-3, val_max_old+label_offset_x, store[val_max_old]-corr-label_offset_y, BLACK);// draw pointer to val_max
+		ili9341_drawLine(val_min_old+3, store[val_min_old]-corr+3, val_min_old+label_offset_x, store[val_min_old]-corr+label_offset_y, BLACK);// draw pointer to val_min
+		//clear old min/max label
+		ili9341_settextcolour(BLACK,BLACK);
+		ili9341_setcursor(val_min_old+label_offset_x+3, store[val_min_old]-corr+label_offset_y);
+		printf("%d", store[val_min_old]);
+		ili9341_setcursor(val_max_old+label_offset_x+3, store[val_max_old]-corr-label_offset_y-7);
+		printf("%d", store[val_max_old]);
+		//draw new pointer
+		ili9341_drawLine(val_max+3, store[val_max]-corr-3, val_max+label_offset_x, store[val_max]-corr-label_offset_y, YELLOW);// draw pointer to val_max
+		ili9341_drawLine(val_min+3, store[val_min]-corr+3, val_min+label_offset_x, store[val_min]-corr+label_offset_y, YELLOW);// draw pointer to val_min
+		//draw new min/max label
+		ili9341_settextcolour(YELLOW,BLACK);
+		ili9341_setcursor(val_min+label_offset_x+3, store[val_min]-corr+label_offset_y);
+		printf("%d", store[val_min]);
+		ili9341_setcursor(val_max+label_offset_x+3, store[val_max]-corr-label_offset_y-7);
+		printf("%d", store[val_max]);
+		val_max_old=val_max;
+		val_min_old=val_min;
+	}
+		
+		ili9341_setcursor(10,50);
+	printf("Pos: %d val: %d", store[val_max], store[posx_max+2]);
 		ili9341_setcursor(10,20);
-	printf("min %d max %d", val_min, val_max);
+	printf("%d", val_max);
+
+	
+	
 	
 	
 	return corr;
